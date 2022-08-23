@@ -10,19 +10,19 @@ record Snack(string Type);
 ...
 
 // Load snack state
-var state = Taste<Snack>.Bite();
+var taste = Taste<Snack>.Bite();
 
 // This will get you the same instance as the bite method gave you. However, you cannot chew until you take a bite!
-var sameState = Taste<Snack>.Chew;
+var sameTaste = Taste<Snack>.Chew;
 
 // get the current snack (Can be null)
-var snack = state.Flavour;
+var snack = taste.Flavour;
 
 // set new snack
-state.Flavour = new Snack("Chocolate");
+taste.Flavour = new Snack("Chocolate");
 
 // persist the snack state
-state.Savor();
+taste.Savor();
 ```
 
 
