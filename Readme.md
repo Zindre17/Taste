@@ -22,7 +22,7 @@ var snack = state.Flavour;
 state.Flavour = new Snack("Chocolate");
 
 // persist the snack state
-state.Savour();
+state.Savor();
 ```
 
 
