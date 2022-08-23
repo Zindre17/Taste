@@ -15,4 +15,8 @@
     <RepositoryUrl>https://github.com/Zindre17/Taste</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="./Readme.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 </Project>
