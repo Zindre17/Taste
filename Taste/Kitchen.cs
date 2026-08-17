@@ -20,7 +20,6 @@ public static class Kitchen
     ///     <see cref="Pantry.Location" />. Only honoured on the first serving.
     /// </param>
     /// <returns>The serving, whose <see cref="Serving{TFlavour}.Flavour" /> is never null.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="recipe" /> is null.</exception>
     /// <exception cref="System.Text.Json.JsonException">
     ///     The pantry holds a file for this flavour that is not valid JSON. The recipe is
     ///     deliberately <i>not</i> used as a fallback here: a flavour that cannot be read
@@ -28,11 +27,6 @@ public static class Kitchen
     /// </exception>
     public static Serving<TFlavour> Serve<TFlavour>(Func<TFlavour> recipe, string? pantry = null)
     {
-        if (recipe is null)
-        {
-            throw new ArgumentNullException(nameof(recipe));
-        }
-
         return Serving<TFlavour>.DishUp(recipe, pantry);
     }
 

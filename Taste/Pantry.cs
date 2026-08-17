@@ -23,16 +23,13 @@ public static class Pantry
     ///     The default location was needed, but the directory of the running executable
     ///     could not be determined.
     /// </exception>
-    /// <exception cref="ArgumentNullException">
-    ///     An attempt was made to set the location to <see langword="null" />.
-    /// </exception>
     public static string Location
     {
         get => location ??= Path.GetDirectoryName(Environment.ProcessPath)
             ?? throw new InvalidOperationException(
                 "Could not find the directory of the running executable. "
                 + "Set Pantry.Location to say where servings should be kept.");
-        set => location = value ?? throw new ArgumentNullException(nameof(value));
+        set => location = value;
     }
 
     /// <summary>
