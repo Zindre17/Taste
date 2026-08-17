@@ -36,10 +36,7 @@ public sealed class Serving<TFlavour> : IDisposable
     /// <exception cref="ObjectDisposedException">This serving has been disposed.</exception>
     public void Savor()
     {
-        if (disposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
+        ObjectDisposedException.ThrowIf(disposed, this);
 
         var pantry = Path.GetDirectoryName(dish);
         if (!string.IsNullOrEmpty(pantry))

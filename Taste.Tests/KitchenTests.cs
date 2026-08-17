@@ -32,7 +32,7 @@ public class KitchenTests
     [TestMethod]
     public void CannotReheatBeforeYouServe()
     {
-        Assert.ThrowsException<InvalidOperationException>(() => Kitchen.Reheat<Unserved>());
+        Assert.Throws<InvalidOperationException>(() => Kitchen.Reheat<Unserved>());
     }
 
     [TestMethod]
@@ -51,7 +51,7 @@ public class KitchenTests
         var one = Kitchen.Serve(() => new SameServing("hi"));
         var other = Kitchen.Serve(() => new Coexisting("world"));
 
-        Assert.AreNotSame(one, other);
+        Assert.AreNotSame<object>(one, other);
         Assert.AreSame(one, Kitchen.Reheat<SameServing>());
     }
 
@@ -137,8 +137,8 @@ public class KitchenTests
 
         serving.Dispose();
 
-        Assert.ThrowsException<InvalidOperationException>(() => Kitchen.Reheat<Reserved>());
-        Assert.ThrowsException<ObjectDisposedException>(() => serving.Savor());
+        Assert.Throws<InvalidOperationException>(() => Kitchen.Reheat<Reserved>());
+        Assert.Throws<ObjectDisposedException>(() => serving.Savor());
         Assert.AreNotSame(serving, Kitchen.Serve(() => new Reserved("second"), pantry));
     }
 
