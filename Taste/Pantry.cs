@@ -7,8 +7,6 @@ namespace Taste;
 /// </summary>
 public static class Pantry
 {
-    private static string? location;
-
     /// <summary>
     ///     The directory servings are read from and written to when no pantry is named
     ///     at the counter. Defaults to the directory of the running executable.
@@ -25,11 +23,11 @@ public static class Pantry
     /// </exception>
     public static string Location
     {
-        get => location ??= Path.GetDirectoryName(Environment.ProcessPath)
+        get => field ??= Path.GetDirectoryName(Environment.ProcessPath)
             ?? throw new InvalidOperationException(
                 "Could not find the directory of the running executable. "
                 + "Set Pantry.Location to say where servings should be kept.");
-        set => location = value;
+        set;
     }
 
     /// <summary>

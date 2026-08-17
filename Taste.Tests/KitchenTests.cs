@@ -19,6 +19,7 @@ public class KitchenTests
     public record Disposable(string Gone);
     public record Reserved(string Again);
     public record Untouched(string Original);
+    public record Moved(string Shelf);
     public record SelfMade
     {
         public string Filling { get; set; } = "empty";
@@ -152,6 +153,30 @@ public class KitchenTests
 
         Assert.AreSame(first, second);
         Assert.AreEqual(new Untouched("first"), second.Flavour);
+    }
+
+    [TestMethod]
+    public void ThePantryCanBeMovedForEveryFlavour()
+    {
+        // Location is global, so put it back for the tests that rely on the default.
+        var original = Pantry.Location;
+        var moved = FreshPantry();
+
+        try
+        {
+            Pantry.Location = moved;
+            Assert.AreEqual(moved, Pantry.Location);
+
+            Kitchen.Serve(() => new Moved("here")).Savor();
+
+            Assert.IsTrue(Directory.GetFiles(moved).Single().EndsWith("moved.json"));
+        }
+        finally
+        {
+            Pantry.Location = original;
+        }
+
+        Assert.AreEqual(original, Pantry.Location);
     }
 
     [TestMethod]
