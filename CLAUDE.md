@@ -23,13 +23,15 @@ dotnet pack Taste/Taste.csproj -c Release       # produce the NuGet package
 
 **The static entry point cannot be named `Taste`.** The namespace is `Taste`, so a non-generic `Taste` class would be `Taste.Taste` and consumers hit CS0118 ("is a namespace but is used like a type"). v1's `Taste<TFlavour>` got away with it only because generic arity disambiguates — namespaces can't be generic. That constraint is why the entry point is `Kitchen`.
 
-**Per-closed-generic singleton.** `Serving<T>.current` is a static field on a generic type, so each `TFlavour` gets its own serving. That is the mechanism behind "different flavours coexist" — there is no registry or dictionary. Consequence: `Serve<T>` consults its `recipe` and `pantry` arguments *only* on the first serving; later calls hand back the cached instance and ignore both.
+**Per-closed-generic singleton.** `Serving<T>.current` is a static field on a generic type, so each `TFlavour` gets its own serving. That is the mechanism behind "different flavours coexist" — there is no registry or dictionary.
+
+**Serve once, reheat thereafter.** `Serve<T>` starts a sitting and throws `InvalidOperationException` if that flavour is already being served; `Reheat<T>` is how every later call site reaches it. The alternative — returning the cached serving — would silently discard the second call's `recipe` and `pantry`, and an ignored `pantry` means state quietly keeps going to the old directory. Disposing ends the sitting, so `Serve` is valid again afterwards.
 
 **File location.** `Pantry.LocateDish<T>()` builds `{entry-assembly-name}.{flavour-type-name}.json` (both `ToLowerInvariant`) inside the explicit `pantry` argument, else `Pantry.Location`, else the directory of `Environment.ProcessPath`. The default is resolved lazily, so a null `ProcessPath` only throws for callers who actually rely on it. Two things to know: the name depends on the *entry* assembly (under `dotnet test` that is the test host), and two `TFlavour` types with the same simple name collide on one file.
 
 **Load on serve, write on `Savor()`/`Dispose()`.** `DishUp` reads and deserializes, falling back to the recipe when the file is absent or deserializes to null. A corrupt file throws `JsonException` on purpose — do not "helpfully" fall back to the recipe there, it would silently destroy user state. `Dispose()` savors, then clears the singleton so `Reheat` throws and the next `Serve` re-reads.
 
-**Tests share process state.** MSTest runs all tests in one process, so singletons and on-disk JSON persist across test methods and across runs. Each test declares its own record type to stay isolated — follow that, rather than reusing an existing flavour. `Unserved` exists solely so `CannotReheatBeforeYouServe` can observe a never-served type; never call `Serve<Unserved>()`. Tests that touch the filesystem use `FreshPantry()` (a GUID temp directory) so they do not depend on run order.
+**Tests share process state.** MSTest runs all tests in one process, so singletons and on-disk JSON persist across test methods and across runs. Each test declares its own record type to stay isolated — follow that, rather than reusing an existing flavour. `Unserved` exists solely so `CannotReheatBeforeYouServe` can observe a never-served type; never call `Serve<Unserved>()`. Because `Serve` is strict, sharing a flavour between two tests makes them order-dependent — a second test serving it throws. Tests that touch the filesystem use `FreshPantry()` (a GUID temp directory) so they do not depend on run order.
 
 ## Docs
 

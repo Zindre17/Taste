@@ -88,14 +88,17 @@ public sealed class Serving<TFlavour> : IDisposable
     }
 
     /// <summary>
-    ///     Serves this flavour, reading the pantry on the first sitting and handing back
-    ///     the same serving on every sitting after that.
+    ///     Starts a sitting: reads the pantry and puts this flavour on the table. One
+    ///     sitting at a time — see <see cref="Reheat" /> to take up the one already there.
     /// </summary>
     internal static Serving<TFlavour> DishUp(Func<TFlavour> recipe, string? pantry)
     {
         if (current is not null)
         {
-            return current;
+            throw new InvalidOperationException(
+                $"{typeof(TFlavour).Name} is already being served. Reheat it to take up "
+                + "the serving that is on the table, or dispose that serving to start a "
+                + "new sitting.");
         }
 
         var dish = Pantry.LocateDish<TFlavour>(pantry);

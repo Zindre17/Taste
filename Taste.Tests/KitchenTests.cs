@@ -10,7 +10,8 @@ public class KitchenTests
     // a process, so a shared record would leak state between tests.
     public record Unserved(string Never);
     public record SameServing(string Hello);
-    public record Coexisting(string World);
+    public record CoexistingOne(string Hello);
+    public record CoexistingTwo(string World);
     public record Reciped(string Made);
     public record Kept(string Stored);
     public record Persisted(string Savored);
@@ -20,6 +21,7 @@ public class KitchenTests
     public record Reserved(string Again);
     public record Untouched(string Original);
     public record Moved(string Shelf);
+    public record Reseated(string Sitting);
     public record SelfMade
     {
         public string Filling { get; set; } = "empty";
@@ -40,20 +42,20 @@ public class KitchenTests
     public void EnsureSameServing()
     {
         var serving = Kitchen.Serve(() => new SameServing("hi"));
-        var reheated = Kitchen.Reheat<SameServing>();
 
-        Assert.AreSame(serving, reheated);
-        Assert.AreSame(serving, Kitchen.Serve(() => new SameServing("hi")));
+        Assert.AreSame(serving, Kitchen.Reheat<SameServing>());
+        Assert.AreSame(serving, Kitchen.Reheat<SameServing>());
     }
 
     [TestMethod]
     public void EnsureDifferentFlavoursCoexist()
     {
-        var one = Kitchen.Serve(() => new SameServing("hi"));
-        var other = Kitchen.Serve(() => new Coexisting("world"));
+        var one = Kitchen.Serve(() => new CoexistingOne("hi"));
+        var other = Kitchen.Serve(() => new CoexistingTwo("world"));
 
         Assert.AreNotSame<object>(one, other);
-        Assert.AreSame(one, Kitchen.Reheat<SameServing>());
+        Assert.AreSame(one, Kitchen.Reheat<CoexistingOne>());
+        Assert.AreSame(other, Kitchen.Reheat<CoexistingTwo>());
     }
 
     [TestMethod]
@@ -144,15 +146,30 @@ public class KitchenTests
     }
 
     [TestMethod]
-    public void ServingAgainIgnoresTheSecondRecipeAndPantry()
+    public void ServingTwiceThrows()
+    {
+        var first = Kitchen.Serve(() => new Untouched("first"), FreshPantry());
+
+        Assert.Throws<InvalidOperationException>(
+            () => Kitchen.Serve(() => new Untouched("second"), FreshPantry()));
+
+        // The sitting that was already on the table is untouched.
+        Assert.AreSame(first, Kitchen.Reheat<Untouched>());
+        Assert.AreEqual(new Untouched("first"), first.Flavour);
+    }
+
+    [TestMethod]
+    public void ServingAgainAfterDisposingIsANewSitting()
     {
         var pantry = FreshPantry();
-        var first = Kitchen.Serve(() => new Untouched("first"), pantry);
+        using (var first = Kitchen.Serve(() => new Reseated("first"), pantry))
+        {
+            first.Flavour = new Reseated("kept");
+        }
 
-        var second = Kitchen.Serve(() => new Untouched("second"), FreshPantry());
+        var second = Kitchen.Serve(() => new Reseated("recipe should not run"), pantry);
 
-        Assert.AreSame(first, second);
-        Assert.AreEqual(new Untouched("first"), second.Flavour);
+        Assert.AreEqual(new Reseated("kept"), second.Flavour);
     }
 
     [TestMethod]

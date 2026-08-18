@@ -25,9 +25,17 @@ serving.Savor();
 Serving<Snack> sameServing = Kitchen.Reheat<Snack>();
 ```
 
-`Serve` reads the pantry the first time a flavour is asked for, and hands back that same
-serving every time after. The recipe only runs when there is nothing kept — on later
-calls it is not even looked at.
+**Serve once, reheat thereafter.** `Serve` starts a sitting: it reads the pantry, runs the
+recipe if there was nothing kept, and puts the flavour on the table. There is one sitting
+at a time, so serving the same flavour twice throws — reach for `Reheat` everywhere after
+the first call.
+
+That is deliberate. If `Serve` quietly handed back the existing serving, the `recipe` and
+`pantry` you passed the second time would be silently ignored, and a pantry that is
+ignored means your state keeps going somewhere you thought you had changed. Better to
+hear about it at startup.
+
+Disposing a serving ends the sitting, so `Serve` works again afterwards — see below.
 
 ## Where the snacks are kept
 
@@ -44,8 +52,8 @@ Pantry.Location = Environment.GetFolderPath(Environment.SpecialFolder.Applicatio
 var serving = Kitchen.Serve(() => new Snack("Chocolate"), "/some/other/cupboard");
 ```
 
-Either way, say it before the first `Serve` of that flavour — a serving keeps the pantry
-it was dished up from. The directory is created for you when you `Savor`.
+Either way, say it before the `Serve` of that flavour — a serving keeps the pantry it was
+dished up from. The directory is created for you when you `Savor`.
 
 ## Savoring by disposing
 
@@ -67,8 +75,8 @@ worth keeping" is genuinely what you mean — a settings file, a cursor, a play 
 it is not, hold the serving without `using` and call `Savor()` yourself at the point where
 you know the flavour is good.
 
-Disposing also ends the sitting: `Reheat` throws afterwards, and the next `Serve` reads
-the pantry afresh. Disposing twice savors once.
+Disposing also ends the sitting: `Reheat` throws afterwards, and `Serve` may be called
+again to start a new one, reading the pantry afresh. Disposing twice savors once.
 
 ## The boring stuff
 
