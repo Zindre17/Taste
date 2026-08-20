@@ -23,7 +23,7 @@ dotnet pack Taste/Taste.csproj -c Release       # produce the NuGet package
 
 **The entry point cannot be named `Taste`.** The namespace is `Taste`, so a non-generic `Taste` class would be `Taste.Taste`, and a consumer writing `Taste.Savor(x)` gets CS0234 — the namespace wins the lookup and the type is only reachable as `Taste.Taste.Savor(x)`. v1's `Taste<TFlavour>` got away with it only because generic arity disambiguates. That is why the entry point is `Cook`, and why the `Savor` easter egg is an extension method rather than a static one.
 
-**`Savor` lives in `Taste.Savoring` on purpose.** It extends `TTaste` unconstrained, so a plain `using Taste;` would put `.Savor()` on every type in scope. The separate namespace keeps it opt-in.
+**`Savor` lives in `Taste.Savoring` on purpose.** It extends every `TTaste` that satisfies `new()`, so a plain `using Taste;` would put `.Savor()` on most types in scope. The separate namespace keeps it opt-in.
 
 **Per-closed-generic memory.** `Cook.Dish<TTaste>` is a private static generic class holding the served taste and whether it has been served. Each `TTaste` gets its own — there is no registry or dictionary.
 
