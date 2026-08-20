@@ -1,67 +1,58 @@
+using System.Reflection;
+using System.Text.Json;
+
 namespace Taste;
 
 /// <summary>
-///     A tasteful persistable state handler for console applications.
+///     The arrangements a cook works under: where the pantry is, how tastes are written
+///     down. Build one and hand it to <see cref="Cook.UseKitchen" /> if the standard
+///     arrangements are not what you want.
 /// </summary>
-public static class Kitchen
+/// <remarks>
+///     A kitchen is fixed once built. Nothing about it can be changed afterwards, so
+///     there is no question of a taste being served under arrangements that have since
+///     moved.
+/// </remarks>
+public sealed class Kitchen
 {
     /// <summary>
-    ///     Serve a flavour: what the pantry kept last time, or whatever
-    ///     <paramref name="recipe" /> makes if the pantry has nothing.
+    ///     The standard arrangements, used until a cook is given a different kitchen.
     /// </summary>
-    /// <typeparam name="TFlavour">The type of flavour to serve.</typeparam>
-    /// <param name="recipe">
-    ///     Makes the flavour when the pantry has nothing kept for it yet.
-    /// </param>
-    /// <param name="pantry">
-    ///     Directory to keep this flavour in. Defaults to <see cref="Pantry.Location" />.
-    /// </param>
-    /// <returns>The serving, whose <see cref="Serving{TFlavour}.Flavour" /> is never null.</returns>
+    public static Kitchen Default { get; } = new();
+
+    /// <summary>
+    ///     Directory tastes are read from and written to. Defaults to the directory of
+    ///     the running executable, worked out the first time it is needed.
+    /// </summary>
     /// <exception cref="InvalidOperationException">
-    ///     This flavour is already being served. Serve starts a sitting, and there is one
-    ///     sitting at a time: use <see cref="Reheat{TFlavour}" /> to take up the serving
-    ///     already on the table, or dispose it to start a new sitting.
+    ///     The default was needed, but the directory of the running executable could not
+    ///     be determined.
     /// </exception>
-    /// <exception cref="System.Text.Json.JsonException">
-    ///     The pantry holds a file for this flavour that is not valid JSON. The recipe is
-    ///     deliberately <i>not</i> used as a fallback here: a flavour that cannot be read
-    ///     is a problem to look at, not to quietly overwrite.
-    /// </exception>
-    public static Serving<TFlavour> Serve<TFlavour>(Func<TFlavour> recipe, string? pantry = null)
+    public string Pantry
     {
-        return Serving<TFlavour>.DishUp(recipe, pantry);
+        get => field ??= Path.GetDirectoryName(Environment.ProcessPath)
+            ?? throw new InvalidOperationException(
+                "Could not find the directory of the running executable. "
+                + "Build a Kitchen with a Pantry to say where tastes should be kept.");
+        init;
     }
 
     /// <summary>
-    ///     Serve a flavour that can make itself, for when the recipe is just
-    ///     <c>new TFlavour()</c>.
+    ///     How tastes are written down and read back. Defaults to plain Json.
     /// </summary>
-    /// <typeparam name="TFlavour">The type of flavour to serve.</typeparam>
-    /// <param name="pantry">
-    ///     Directory to keep this flavour in. Defaults to <see cref="Pantry.Location" />.
-    /// </param>
-    /// <returns>The serving, whose <see cref="Serving{TFlavour}.Flavour" /> is never null.</returns>
-    /// <exception cref="InvalidOperationException">
-    ///     This flavour is already being served. See the other overload.
-    /// </exception>
-    public static Serving<TFlavour> Serve<TFlavour>(string? pantry = null)
-        where TFlavour : new()
-    {
-        return Serving<TFlavour>.DishUp(() => new TFlavour(), pantry);
-    }
+    public JsonSerializerOptions? Seasoning { get; init; }
 
     /// <summary>
-    ///     Take up a flavour that is already being served, from wherever you happen to be.
-    ///     This is how you reach a flavour after the one <c>Serve</c> that started it.
+    ///     The file a taste is kept in: <c>{entry assembly}.{taste}.json</c>, in this
+    ///     kitchen's <see cref="Pantry" />.
     /// </summary>
-    /// <typeparam name="TFlavour">The type of flavour to reheat.</typeparam>
-    /// <returns>The same serving that <c>Serve</c> handed out earlier.</returns>
-    /// <exception cref="InvalidOperationException">
-    ///     This flavour is not being served — it has not been served yet, or its serving
-    ///     has been disposed. You cannot reheat what was never cooked.
-    /// </exception>
-    public static Serving<TFlavour> Reheat<TFlavour>()
+    internal string LocateDish<TTaste>()
     {
-        return Serving<TFlavour>.Reheat();
+        var name = Assembly.GetEntryAssembly()?.GetName().Name
+            ?? throw new InvalidOperationException("Could not find name of entry assembly.");
+
+        return Path.Combine(
+            Pantry,
+            $"{name.ToLowerInvariant()}.{typeof(TTaste).Name.ToLowerInvariant()}.json");
     }
 }
