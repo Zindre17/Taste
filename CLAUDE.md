@@ -33,7 +33,11 @@ dotnet pack Taste/Taste.csproj -c Release       # produce the NuGet package
 
 **Arrangements are settled on first contact with the pantry.** `Cook.Working` returns the kitchen and sets `hasCooked`; `UseKitchen` throws once that flag is set. `Kitchen` is init-only, so there is no way to change arrangements out from under a taste that has already been served. The cost is that there is exactly one kitchen per process.
 
-**File location.** `Kitchen.LocateDish<T>()` builds `{entry-assembly-name}.{taste-type-name}.json` (both `ToLowerInvariant`) inside the kitchen's `Pantry`, which defaults to the directory of `Environment.ProcessPath`. The default is resolved lazily on first read, so a null `ProcessPath` only throws for callers who actually rely on it. Two things to know: the name depends on the *entry* assembly (under `dotnet test` that is the test host), and two `TTaste` types with the same simple name collide on one file.
+**File location.** `Kitchen.LocateDish<T>()` builds `{entry-assembly-name}.{taste-full-name}.json`, lowercased, inside the kitchen's `Pantry`, which defaults to the directory of `Environment.ProcessPath`. The default is resolved lazily on first read, so a null `ProcessPath` only throws for callers who actually rely on it. The name depends on the *entry* assembly — under `dotnet test` that is `testhost`.
+
+**The taste is named in full, on purpose.** `Kitchen.NameOf<T>()` uses `Type.FullName`, so `Billing.Settings` and `Display.Settings` get a dish each. Under the old simple-name scheme they shared one, silently, and it was the hardest failure here to diagnose. `NameOf` tidies three things `FullName` produces: nested types arrive as `Outer+Inner`, generic arity as `Held\`1`, and closed generics as an assembly-qualified `Held\`1[[System.Int32, ...]]` that is cut at the first `[`. The trade is that renaming a taste or moving its namespace orphans its dish — `Serve` then hands out a fresh one.
+
+`CookTests.DishFor<T>()` mirrors this from the test side and has to be kept in step.
 
 **`where TTaste : new()`, and why there is no recipe.** An earlier shape had `Cook.Learn<T>(Func<T>)` supplying a factory for tastes that could not make themselves. It was dropped because it could only fail when the pantry was *empty* — that is, on a fresh install, on someone else's machine, never on the developer's after their first run. The `new()` constraint moves that to CS0310 at the call site instead. The cost is the positional record form (`record Snack(string Type)`); `init` properties with initialisers keep both immutability and a first-run default, on the type where there is one place to look for it. Do not reintroduce a factory parameter or a `Learn` method — it puts the fresh-install footgun straight back.
 
@@ -47,6 +51,8 @@ MSTest runs all tests in one process, so the cook's memory and the on-disk JSON 
 - **One pantry for the whole run.** Arrangements are settled once per process, so `[AssemblyInitialize]` in `CookTests` calls `UseKitchen` with a GUID temp directory, and tests share it. Isolation comes from the taste type, not from the pantry — the old per-test `FreshPantry()` pattern is not possible here. `UseKitchenAfterTheCookHasStartedThrows` relies on `AssemblyInitialize` having already run.
 
 Tests that need to read a dish off disk build the path with `DishFor<T>()`, which mirrors `Kitchen.LocateDish<T>()` from the test side. If the naming scheme changes, that helper has to change with it.
+
+`Taste.Tests.Cupboard.Twin` exists solely to share a short name with `CookTests.Twin`, so `TastesWithTheSameShortNameGetTheirOwnDish` has a real collision to not have. Do not merge it into the test class.
 
 ## Docs
 

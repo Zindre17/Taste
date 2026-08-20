@@ -63,7 +63,9 @@ and no registration call to forget.
 
 ## Where the snacks are kept
 
-Json file(s), one per taste, named `{your app}.{taste}.json`.
+Json file(s), one per taste, named `{your app}.{taste}.json` — where the taste is named in
+full, namespace and all, so `myapp.myapp.settings.json` rather than `myapp.settings.json`.
+Long, but two tastes never land in the same dish by accident.
 
 By default they go next to your executable, which is fine for a tool you run out of a
 folder and wrong for one installed somewhere read-only. Build a kitchen to say otherwise:
@@ -84,8 +86,13 @@ you when you `Preserve`.
 ## The boring stuff
 
 What if two tastes are named the same?
-* They collide — the file name uses the *simple* type name. Two `Settings` records from
-  different namespaces would share a file.
+* They do not collide. The file name uses the full type name, so `Billing.Settings` and
+  `Display.Settings` get a dish each. Nested tastes are written with dots rather than the
+  `+` the runtime uses.
+
+What if I rename a taste, or move it to another namespace?
+* Its dish is no longer found, and `Serve` hands out a fresh taste. Rename the file in
+  the pantry to match if the kept state matters.
 
 What if the file is there but is not valid Json?
 * `Serve` throws. A fresh taste is deliberately not used as a fallback: state you cannot

@@ -45,6 +45,12 @@ public class CookTests
         public string Filling { get; set; } = "empty";
     }
 
+    // Deliberately the same short name as Cupboard.Twin below.
+    public record Twin
+    {
+        public string Where { get; init; } = "nowhere";
+    }
+
     // The cook's arrangements are settled once per process, so the whole run shares one
     // pantry. Tests stay isolated by using a taste type of their own, not a pantry of
     // their own.
@@ -62,10 +68,13 @@ public class CookTests
         });
     }
 
+    // Mirrors Kitchen.LocateDish from the test side. If the naming scheme changes, this
+    // has to change with it.
     private static string DishFor<TTaste>()
     {
-        var app = Assembly.GetEntryAssembly()!.GetName().Name!.ToLowerInvariant();
-        return Path.Combine(pantry, $"{app}.{typeof(TTaste).Name.ToLowerInvariant()}.json");
+        var app = Assembly.GetEntryAssembly()!.GetName().Name!;
+        var taste = typeof(TTaste).FullName!.Replace('+', '.').Replace('`', '.');
+        return Path.Combine(pantry, $"{app}.{taste}.json".ToLowerInvariant());
     }
 
     [TestMethod]
@@ -136,6 +145,25 @@ public class CookTests
         var dish = DishFor<Seasoned>();
         Assert.IsTrue(File.Exists(dish), "the kitchen's pantry was not used");
         StringAssert.Contains(File.ReadAllText(dish), Environment.NewLine);
+    }
+
+    [TestMethod]
+    public void TastesWithTheSameShortNameGetTheirOwnDish()
+    {
+        Cook.Preserve(new Twin { Where = "nested in the test class" });
+        Cook.Preserve(new Cupboard.Twin { Where = "in the cupboard" });
+
+        Assert.AreNotEqual(DishFor<Twin>(), DishFor<Cupboard.Twin>());
+        Assert.AreEqual("nested in the test class", Cook.Serve<Twin>().Where);
+        Assert.AreEqual("in the cupboard", Cook.Serve<Cupboard.Twin>().Where);
+    }
+
+    [TestMethod]
+    public void ANestedTasteIsNamedWithDotsRatherThanAPlus()
+    {
+        // Type.FullName says Taste.Tests.CookTests+Twin; a dish should not.
+        Assert.IsFalse(Path.GetFileName(DishFor<Twin>()).Contains('+'));
+        StringAssert.Contains(Path.GetFileName(DishFor<Twin>()), "cooktests.twin");
     }
 
     [TestMethod]

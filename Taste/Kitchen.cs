@@ -44,15 +44,34 @@ public sealed class Kitchen
 
     /// <summary>
     ///     The file a taste is kept in: <c>{entry assembly}.{taste}.json</c>, in this
-    ///     kitchen's <see cref="Pantry" />.
+    ///     kitchen's <see cref="Pantry" />. The taste is named in full, namespace and all,
+    ///     so two tastes with the same short name do not end up in the same dish.
     /// </summary>
     internal string LocateDish<TTaste>()
     {
-        var name = Assembly.GetEntryAssembly()?.GetName().Name
+        var app = Assembly.GetEntryAssembly()?.GetName().Name
             ?? throw new InvalidOperationException("Could not find name of entry assembly.");
 
-        return Path.Combine(
-            Pantry,
-            $"{name.ToLowerInvariant()}.{typeof(TTaste).Name.ToLowerInvariant()}.json");
+        return Path.Combine(Pantry, $"{app}.{NameOf<TTaste>()}.json".ToLowerInvariant());
+    }
+
+    /// <summary>
+    ///     A taste's full name, tidied into something that can be a file name.
+    /// </summary>
+    private static string NameOf<TTaste>()
+    {
+        var taste = typeof(TTaste);
+        var name = taste.FullName ?? taste.Name;
+
+        // A generic taste arrives assembly-qualified — Ns.Held`1[[System.Int32, ...]].
+        // Keep the readable head; the arity is enough to tell Held<T> apart from Held.
+        var arguments = name.IndexOf('[', StringComparison.Ordinal);
+        if (arguments >= 0)
+        {
+            name = name[..arguments];
+        }
+
+        // A nested taste comes through as Outer+Inner, and the arity as Held`1.
+        return name.Replace('+', '.').Replace('`', '.');
     }
 }
