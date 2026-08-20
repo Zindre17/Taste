@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`Taste` is a small NuGet library that persists console-app state as JSON. The public surface is two types: `Cook` (the static entry point — `Serve<T>`, `Preserve<T>`, `Learn<T>`, `UseKitchen`) and `Kitchen` (the arrangements — `Pantry`, `Seasoning`, `Default`), plus one easter egg, `Savor()`, tucked away in `Taste.Savoring`.
+`Taste` is a small NuGet library that persists console-app state as JSON. The public surface is two types: `Cook` (the static entry point — `Serve<T>`, `Preserve<T>`, `UseKitchen`) and `Kitchen` (the arrangements — `Pantry`, `Seasoning`, `Default`), plus one easter egg, `Savor()`, tucked away in `Taste.Savoring`.
 
-The name is an anagram of *state* — that pun is the origin of the food metaphor, which is deliberate and pervasive from there (`TTaste` for the state value, `Preserve()` for the write, `recipe` for the factory, `dish` for the file path). Keep API and identifier naming in that vocabulary.
+The name is an anagram of *state* — that pun is the origin of the food metaphor, which is deliberate and pervasive from there (`TTaste` for the state value, `Preserve()` for the write, `pantry` for the directory, `dish` for the file path). Keep API and identifier naming in that vocabulary.
 
 ## Commands
 
 ```bash
 dotnet build                                    # build solution
 dotnet test                                     # run all tests
-dotnet test --filter LearnTeachesTheCookToMakeIt  # run a single test by method name
+dotnet test --filter PreserveWritesTheTasteToThePantry  # run a single test by method name
 dotnet pack Taste/Taste.csproj -c Release       # produce the NuGet package
 ```
 
@@ -25,9 +25,9 @@ dotnet pack Taste/Taste.csproj -c Release       # produce the NuGet package
 
 **`Savor` lives in `Taste.Savoring` on purpose.** It extends `TTaste` unconstrained, so a plain `using Taste;` would put `.Savor()` on every type in scope. The separate namespace keeps it opt-in.
 
-**Per-closed-generic memory.** `Cook.Dish<TTaste>` is a private static generic class holding the learned recipe, the served taste, and whether it has been served. Each `TTaste` gets its own — there is no registry or dictionary.
+**Per-closed-generic memory.** `Cook.Dish<TTaste>` is a private static generic class holding the served taste and whether it has been served. Each `TTaste` gets its own — there is no registry or dictionary.
 
-**`Serve` is idempotent, and that is why there is no `Reheat`.** v2's earlier shape had a strict `Serve` that threw on the second call, plus a `Reheat` for every later call site. The strictness existed for one reason: a second `Serve` would silently ignore the `recipe` and `pantry` passed to it. Neither is a per-call argument any more — the recipe comes from `Learn`, the pantry from `UseKitchen` — so there is nothing left to ignore, and `Serve` can just hand back what it already served. That collapse removed `Reheat`, the sitting, and `Serving<T>` altogether.
+**`Serve` is idempotent, and that is why there is no `Reheat`.** v2's earlier shape had a strict `Serve` that threw on the second call, plus a `Reheat` for every later call site. The strictness existed for one reason: a second `Serve` would silently ignore the `recipe` and `pantry` passed to it. Neither is a per-call argument any more — a fresh taste comes from its own property initialisers, the pantry from `UseKitchen` — so there is nothing left to ignore, and `Serve` can just hand back what it already served. That collapse removed `Reheat`, the sitting, and `Serving<T>` altogether.
 
 **`Preserve` takes the taste by value, deliberately.** A record replaced with `with` is a different object than the one `Serve` handed out, so a `Preserve<T>()` that looked the taste up in `Dish<T>` would silently write the stale one. Do not "simplify" it into a no-argument form.
 
@@ -35,9 +35,9 @@ dotnet pack Taste/Taste.csproj -c Release       # produce the NuGet package
 
 **File location.** `Kitchen.LocateDish<T>()` builds `{entry-assembly-name}.{taste-type-name}.json` (both `ToLowerInvariant`) inside the kitchen's `Pantry`, which defaults to the directory of `Environment.ProcessPath`. The default is resolved lazily on first read, so a null `ProcessPath` only throws for callers who actually rely on it. Two things to know: the name depends on the *entry* assembly (under `dotnet test` that is the test host), and two `TTaste` types with the same simple name collide on one file.
 
-**Making a taste from scratch.** `Cook.Make<T>()` uses the learned recipe if there is one, else `Activator.CreateInstance<T>()`. `Serve<T>` deliberately has **no** `where TTaste : new()` constraint — that constraint is checked at compile time and would make `Serve<Snack>()` uncompilable for a positional record even after `Learn` had taught the cook how to make one. The trade is that a missing recipe is a runtime failure, so the `MissingMethodException` is caught and rethrown as an `InvalidOperationException` naming `Cook.Learn`. Keep that message pointed at the fix.
+**`where TTaste : new()`, and why there is no recipe.** An earlier shape had `Cook.Learn<T>(Func<T>)` supplying a factory for tastes that could not make themselves. It was dropped because it could only fail when the pantry was *empty* — that is, on a fresh install, on someone else's machine, never on the developer's after their first run. The `new()` constraint moves that to CS0310 at the call site instead. The cost is the positional record form (`record Snack(string Type)`); `init` properties with initialisers keep both immutability and a first-run default, on the type where there is one place to look for it. Do not reintroduce a factory parameter or a `Learn` method — it puts the fresh-install footgun straight back.
 
-**Read on first serve, write on `Preserve`.** `Serve` reads and deserializes, falling back to `Make<T>()` when the file is absent or deserializes to null. A corrupt file throws `JsonException` on purpose — do not "helpfully" fall back there, it would silently destroy user state.
+**Read on first serve, write on `Preserve`.** `Serve` reads and deserializes, falling back to `new TTaste()` when the file is absent or deserializes to null. A corrupt file throws `JsonException` on purpose — do not "helpfully" fall back there, it would silently destroy user state.
 
 ## Tests
 

@@ -4,7 +4,7 @@ A tasteful way to persist state for console applications.
 ## How to taste
 
 ```csharp
-// The state I want to persist
+// The state I want to persist, and what a fresh one looks like
 record Snack
 {
     public string Type { get; set; } = "Chocolate";
@@ -40,22 +40,26 @@ Cook.Preserve(snack);                        // so hand it over
 If `Preserve` looked the taste up by type instead, the line above would silently keep the
 old snack.
 
-## Tastes that cannot make themselves
+## A taste has to be able to make itself
 
-`Serve<T>` makes a fresh taste when the pantry has nothing, which needs a parameterless
-constructor. A positional record has none, so teach the cook first:
+When the pantry has nothing kept, `Serve<T>` makes a fresh taste — so `T` needs a
+parameterless constructor, and says what a fresh one looks like with property
+initialisers:
 
 ```csharp
-record Snack(string Type);
-
-Cook.Learn(() => new Snack("Chocolate"));
-
-var snack = Cook.Serve<Snack>();
+record Snack
+{
+    public string Type { get; init; } = "Chocolate";
+}
 ```
 
-Teach before you serve. If you forget, `Serve` throws and says so — it will not quietly
-hand you something you did not ask for. A recipe is only ever used when the pantry is
-empty, so it runs at most once.
+That is still immutable if you want it to be; use `init` and change it with `with`. What
+you cannot use is the positional form, `record Snack(string Type)` — it has no
+parameterless constructor, so the compiler stops you at the call site rather than letting
+you find out on a machine where the pantry happens to be empty.
+
+Keeping the starting state on the taste itself means there is one place to look for it,
+and no registration call to forget.
 
 ## Where the snacks are kept
 

@@ -8,23 +8,39 @@ namespace Taste.Tests;
 public class CookTests
 {
     // One taste per test: the cook remembers per closed generic, and MSTest shares a
-    // process, so a shared record would leak state between tests.
-    public record Recited(string Made);
-    public record Kept(string Stored);
-    public record Preserved(string Savored);
-    public record Replaced(string Which);
-    public record Untaught(string Never);
-    public record Taught(string Learned);
-    public record TooLate
+    // process, so a shared record would leak state between tests. Every taste can make
+    // itself, and says what a fresh one looks like with property initialisers.
+    public record Corrupt
     {
-        public string Missed { get; set; } = "served without a recipe";
+        public string Unreadable { get; init; } = "never got this far";
     }
-    public record Seasoned(string Flavouring);
+
+    public record Kept
+    {
+        public string Stored { get; init; } = "a fresh one";
+    }
+
+    public record Preserved
+    {
+        public string Savored { get; init; } = "not yet";
+    }
+
+    public record Replaced
+    {
+        public string Which { get; init; } = "the original";
+    }
+
+    public record Seasoned
+    {
+        public string Flavouring { get; init; } = "plain";
+    }
+
+    public record Fresh
+    {
+        public string Filling { get; init; } = "chocolate";
+    }
+
     public record SameTwice
-    {
-        public string Filling { get; set; } = "empty";
-    }
-    public record SelfMade
     {
         public string Filling { get; set; } = "empty";
     }
@@ -53,36 +69,9 @@ public class CookTests
     }
 
     [TestMethod]
-    public void ATasteThatCanMakeItselfNeedsNoRecipe()
+    public void AFreshTasteComesFromItsPropertyInitialisers()
     {
-        var taste = Cook.Serve<SelfMade>();
-
-        Assert.AreEqual("empty", taste.Filling);
-    }
-
-    [TestMethod]
-    public void ATasteThatCannotMakeItselfNeedsARecipe()
-    {
-        var e = Assert.Throws<InvalidOperationException>(() => Cook.Serve<Untaught>());
-
-        StringAssert.Contains(e.Message, "Cook.Learn");
-    }
-
-    [TestMethod]
-    public void LearnTeachesTheCookToMakeIt()
-    {
-        Cook.Learn(() => new Taught("from the recipe"));
-
-        Assert.AreEqual(new Taught("from the recipe"), Cook.Serve<Taught>());
-    }
-
-    [TestMethod]
-    public void LearningAfterServingThrows()
-    {
-        Cook.Serve<TooLate>();
-
-        Assert.Throws<InvalidOperationException>(
-            () => Cook.Learn(() => new TooLate { Missed = "too late" }));
+        Assert.AreEqual("chocolate", Cook.Serve<Fresh>().Filling);
     }
 
     [TestMethod]
@@ -99,24 +88,23 @@ public class CookTests
     [TestMethod]
     public void PreserveWritesTheTasteToThePantry()
     {
-        Cook.Preserve(new Preserved("I was preserved!"));
+        Cook.Preserve(new Preserved { Savored = "I was preserved!" });
 
         Assert.AreEqual(
-            new Preserved("I was preserved!"),
+            new Preserved { Savored = "I was preserved!" },
             JsonSerializer.Deserialize<Preserved>(File.ReadAllText(DishFor<Preserved>())));
     }
 
     [TestMethod]
     public void PreservedTasteIsWhatServeHandsOutAfterwards()
     {
-        Cook.Learn(() => new Replaced("the original"));
-        Cook.Serve<Replaced>();
+        var taste = Cook.Serve<Replaced>();
 
-        // A record replaced with `with` is a different object — this is exactly why
+        // `with` makes a different object than the one served — this is exactly why
         // Preserve takes the taste rather than looking it up.
-        Cook.Preserve(new Replaced("the replacement"));
+        Cook.Preserve(taste with { Which = "the replacement" });
 
-        Assert.AreEqual(new Replaced("the replacement"), Cook.Serve<Replaced>());
+        Assert.AreEqual("the replacement", Cook.Serve<Replaced>().Which);
     }
 
     [TestMethod]
@@ -125,24 +113,25 @@ public class CookTests
         // Written straight to the pantry, so the cook has to read it rather than
         // remember it.
         Directory.CreateDirectory(pantry);
-        File.WriteAllText(DishFor<Kept>(), JsonSerializer.Serialize(new Kept("kept")));
+        File.WriteAllText(
+            DishFor<Kept>(), JsonSerializer.Serialize(new Kept { Stored = "kept" }));
 
-        Assert.AreEqual(new Kept("kept"), Cook.Serve<Kept>());
+        Assert.AreEqual("kept", Cook.Serve<Kept>().Stored);
     }
 
     [TestMethod]
     public void ACorruptDishThrowsRatherThanStartingOver()
     {
         Directory.CreateDirectory(pantry);
-        File.WriteAllText(DishFor<Recited>(), "{ this is not json");
+        File.WriteAllText(DishFor<Corrupt>(), "{ this is not json");
 
-        Assert.Throws<JsonException>(() => Cook.Serve<Recited>());
+        Assert.Throws<JsonException>(() => Cook.Serve<Corrupt>());
     }
 
     [TestMethod]
     public void TheKitchenSaysWhereAndHowTastesAreKept()
     {
-        Cook.Preserve(new Seasoned("indented"));
+        Cook.Preserve(new Seasoned { Flavouring = "indented" });
 
         var dish = DishFor<Seasoned>();
         Assert.IsTrue(File.Exists(dish), "the kitchen's pantry was not used");

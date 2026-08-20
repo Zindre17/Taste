@@ -35,44 +35,24 @@ public static class Cook
     }
 
     /// <summary>
-    ///     Teach the cook how to make a taste from scratch, for when the pantry has
-    ///     nothing kept for it yet. Only needed for tastes that cannot make themselves —
-    ///     one without a parameterless constructor, such as a positional record.
-    /// </summary>
-    /// <typeparam name="TTaste">The type of taste this recipe makes.</typeparam>
-    /// <param name="recipe">Makes the taste when the pantry has nothing.</param>
-    /// <exception cref="InvalidOperationException">
-    ///     This taste has already been served, so the recipe is too late to matter.
-    /// </exception>
-    public static void Learn<TTaste>(Func<TTaste> recipe)
-    {
-        if (Dish<TTaste>.Served)
-        {
-            throw new InvalidOperationException(
-                $"{typeof(TTaste).Name} has already been served, so this recipe would "
-                + "never be used. Teach the cook before serving the taste.");
-        }
-
-        Dish<TTaste>.Recipe = recipe;
-    }
-
-    /// <summary>
     ///     Serve a taste: what the pantry kept last time, or a fresh one if the pantry
     ///     has nothing. Serving the same taste again hands back the one already served,
     ///     so this is safe to call from anywhere, as often as you like.
     /// </summary>
+    /// <remarks>
+    ///     A taste makes itself when the pantry is empty, so it needs a parameterless
+    ///     constructor. Say what a fresh one looks like with property initializers — that
+    ///     keeps the starting state on the taste itself, where it is hard to miss.
+    /// </remarks>
     /// <typeparam name="TTaste">The type of taste to serve.</typeparam>
     /// <returns>The taste, never <see langword="null" />.</returns>
-    /// <exception cref="InvalidOperationException">
-    ///     The pantry had nothing kept, and this taste cannot make itself. Teach the cook
-    ///     with <see cref="Learn{TTaste}" /> first.
-    /// </exception>
     /// <exception cref="JsonException">
     ///     The pantry holds a file for this taste that is not valid Json. A fresh taste is
     ///     deliberately <i>not</i> used as a fallback here: a taste that cannot be read is
     ///     a problem to look at, not to quietly overwrite.
     /// </exception>
     public static TTaste Serve<TTaste>()
+        where TTaste : new()
     {
         if (Dish<TTaste>.Served)
         {
@@ -86,11 +66,11 @@ public static class Cook
         {
             var kept = JsonSerializer.Deserialize<TTaste>(
                 File.ReadAllText(dish), Working.Seasoning);
-            taste = kept is null ? Make<TTaste>() : kept;
+            taste = kept is null ? new TTaste() : kept;
         }
         else
         {
-            taste = Make<TTaste>();
+            taste = new TTaste();
         }
 
         Keep(taste);
@@ -110,6 +90,7 @@ public static class Cook
     /// <typeparam name="TTaste">The type of taste to preserve.</typeparam>
     /// <param name="taste">The taste to keep.</param>
     public static void Preserve<TTaste>(TTaste taste)
+        where TTaste : new()
     {
         var dish = Working.LocateDish<TTaste>();
 
@@ -136,31 +117,6 @@ public static class Cook
         }
     }
 
-    /// <summary>
-    ///     Makes a taste from scratch: the learned recipe if there is one, otherwise the
-    ///     taste makes itself.
-    /// </summary>
-    private static TTaste Make<TTaste>()
-    {
-        if (Dish<TTaste>.Recipe is not null)
-        {
-            return Dish<TTaste>.Recipe();
-        }
-
-        try
-        {
-            return Activator.CreateInstance<TTaste>();
-        }
-        catch (MissingMethodException e)
-        {
-            throw new InvalidOperationException(
-                $"The pantry has nothing kept for {typeof(TTaste).Name}, and it cannot "
-                + "make itself because it has no parameterless constructor. Teach the "
-                + $"cook first: Cook.Learn(() => new {typeof(TTaste).Name}(...));",
-                e);
-        }
-    }
-
     private static void Keep<TTaste>(TTaste taste)
     {
         Dish<TTaste>.Taste = taste;
@@ -173,8 +129,6 @@ public static class Cook
     /// </summary>
     private static class Dish<TTaste>
     {
-        public static Func<TTaste>? Recipe;
-
         public static TTaste? Taste;
 
         public static bool Served;

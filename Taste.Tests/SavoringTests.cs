@@ -6,15 +6,16 @@ namespace Taste.Tests;
 [TestClass]
 public class SavoringTests
 {
-    public record Savored(string How);
+    public record Savored
+    {
+        public string How { get; init; } = "not yet";
+    }
 
     [TestMethod]
     public void SavoringATasteIsPreservingIt()
     {
-        var taste = new Savored("the diner's way");
+        new Savored { How = "the diner's way" }.Savor();
 
-        taste.Savor();
-
-        Assert.AreEqual(new Savored("the diner's way"), Cook.Serve<Savored>());
+        Assert.AreEqual("the diner's way", Cook.Serve<Savored>().How);
     }
 }

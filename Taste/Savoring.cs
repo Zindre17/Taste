@@ -4,8 +4,9 @@ namespace Taste.Savoring;
 ///     For those who would rather savor than preserve.
 /// </summary>
 /// <remarks>
-///     Lives in its own namespace on purpose: <c>Savor</c> extends every type, so it only
-///     turns up for those who ask for it with <c>using Taste.Savoring;</c>.
+///     Lives in its own namespace on purpose: <c>Savor</c> extends every taste that can
+///     make itself, so it only turns up for those who ask for it with
+///     <c>using Taste.Savoring;</c>.
 /// </remarks>
 public static class Tasting
 {
@@ -16,6 +17,7 @@ public static class Tasting
     /// <typeparam name="TTaste">The type of taste to savor.</typeparam>
     /// <param name="taste">The taste to keep.</param>
     public static void Savor<TTaste>(this TTaste taste)
+        where TTaste : new()
     {
         Cook.Preserve(taste);
     }
