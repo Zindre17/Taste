@@ -1,4 +1,5 @@
 # Taste
+
 A tasteful way to persist state for console applications.
 
 ## How to taste
@@ -73,8 +74,7 @@ folder and wrong for one installed somewhere read-only. Build a kitchen to say o
 ```csharp
 Cook.UseKitchen(new Kitchen
 {
-    Pantry = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-    Seasoning = new JsonSerializerOptions { WriteIndented = true },
+    Pantry = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
 });
 ```
 
@@ -86,22 +86,27 @@ you when you `Preserve`.
 ## The boring stuff
 
 What if two tastes are named the same?
+
 * They do not collide. The file name uses the full type name, so `Billing.Settings` and
   `Display.Settings` get a dish each. Nested tastes are written with dots rather than the
   `+` the runtime uses.
 
 What if I rename a taste, or move it to another namespace?
+
 * Its dish is no longer found, and `Serve` hands out a fresh taste. Rename the file in
   the pantry to match if the kept state matters.
 
 What if the file is there but is not valid Json?
+
 * `Serve` throws. A fresh taste is deliberately not used as a fallback: state you cannot
   read is a thing to go and look at, not to quietly overwrite.
 
 What if I never `Preserve`?
+
 * Nothing is written. Reading happens on the first `Serve`, writing only on `Preserve`.
 
 Is the cook thread-safe?
+
 * No. It is meant for a console app settling its state on one thread.
 
 ## One more thing

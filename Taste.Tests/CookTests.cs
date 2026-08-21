@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Text.Json;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Taste.Tests;
 
@@ -64,7 +63,6 @@ public class CookTests
         Cook.UseKitchen(new Kitchen
         {
             Pantry = pantry,
-            Seasoning = new JsonSerializerOptions { WriteIndented = true },
         });
     }
 

@@ -17,7 +17,7 @@ public static class Tasting
     /// <typeparam name="TTaste">The type of taste to savor.</typeparam>
     /// <param name="taste">The taste to keep.</param>
     public static void Savor<TTaste>(this TTaste taste)
-        where TTaste : new()
+        where TTaste : class, new()
     {
         Cook.Preserve(taste);
     }

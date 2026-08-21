@@ -1,16 +1,16 @@
+using System.Reflection;
 using System.Text.Json;
 
 namespace Taste;
 
 /// <summary>
 ///     A tasteful persistable state handler for console applications. The cook serves a
-///     taste from the pantry and preserves it again when it has changed.
+///     taste from the pantry and preserves it again when you ask for it.
 /// </summary>
 public static class Cook
 {
-    private static Kitchen? kitchen;
-
-    private static bool hasCooked;
+    private static Kitchen kitchen = Kitchen.Default;
+    private static bool hasEnteredKitchen = false;
 
     /// <summary>
     ///     Work in a different kitchen than the standard one.
@@ -24,11 +24,11 @@ public static class Cook
     /// </exception>
     public static void UseKitchen(Kitchen kitchen)
     {
-        if (hasCooked)
+        if (hasEnteredKitchen)
         {
             throw new InvalidOperationException(
                 "The cook has already been to the pantry. Call UseKitchen before the "
-                + "first Serve or Preserve, so every taste is kept in the same place.");
+               + "first Serve or Preserve, so every taste is kept in the same place.");
         }
 
         Cook.kitchen = kitchen;
@@ -52,28 +52,17 @@ public static class Cook
     ///     a problem to look at, not to quietly overwrite.
     /// </exception>
     public static TTaste Serve<TTaste>()
-        where TTaste : new()
+        where TTaste : class, new()
     {
-        if (Dish<TTaste>.Served)
+        if (Dish<TTaste>.IsServed)
         {
             return Dish<TTaste>.Taste!;
         }
 
-        var dish = Working.LocateDish<TTaste>();
-
-        TTaste taste;
-        if (File.Exists(dish))
-        {
-            var kept = JsonSerializer.Deserialize<TTaste>(
-                File.ReadAllText(dish), Working.Seasoning);
-            taste = kept is null ? new TTaste() : kept;
-        }
-        else
-        {
-            taste = new TTaste();
-        }
-
-        Keep(taste);
+        var kitchen = EnterKitchen();
+        var jar = JarFor<TTaste>(kitchen);
+        var taste = ReheatOrCook<TTaste>(jar);
+        Remember(taste);
         return taste;
     }
 
@@ -90,37 +79,92 @@ public static class Cook
     /// <typeparam name="TTaste">The type of taste to preserve.</typeparam>
     /// <param name="taste">The taste to keep.</param>
     public static void Preserve<TTaste>(TTaste taste)
-        where TTaste : new()
+        where TTaste : class, new()
     {
-        var dish = Working.LocateDish<TTaste>();
+        var kitchen = EnterKitchen();
+        PreparePantrySpace(kitchen);
+        var jar = JarFor<TTaste>(kitchen);
+        PlaceInPantry(jar, taste);
+        Remember(taste);
+    }
 
-        var pantry = Path.GetDirectoryName(dish);
+    private static TTaste ReheatOrCook<TTaste>(string jar)
+        where TTaste : class, new()
+    {
+        return GrabFromPantry<TTaste>(jar) ?? new TTaste();
+    }
+
+    private static void PreparePantrySpace(Kitchen kitchen)
+    {
+        var pantry = kitchen.Pantry;
         if (!string.IsNullOrEmpty(pantry))
         {
             Directory.CreateDirectory(pantry);
         }
+    }
 
-        File.WriteAllText(dish, JsonSerializer.Serialize(taste, Working.Seasoning));
-        Keep(taste);
+    private static void PlaceInPantry<TTaste>(string jar, TTaste taste)
+        where TTaste : class, new()
+    {
+        File.WriteAllText(jar, JsonSerializer.Serialize(taste));
+    }
+
+    private static TTaste? GrabFromPantry<TTaste>(string jar)
+        where TTaste : class, new()
+    {
+        if (!File.Exists(jar))
+        {
+            return null;
+        }
+        return JsonSerializer.Deserialize<TTaste>(File.ReadAllText(jar));
+    }
+
+    private static void Remember<TTaste>(TTaste taste)
+        where TTaste : class, new()
+    {
+        Dish<TTaste>.Taste = taste;
+        Dish<TTaste>.IsServed = true;
+    }
+
+    private static Kitchen EnterKitchen()
+    {
+        hasEnteredKitchen = true;
+        return kitchen;
     }
 
     /// <summary>
-    ///     The kitchen in use, and the point at which arrangements are settled: once the
-    ///     cook has been to the pantry, <see cref="UseKitchen" /> is too late.
+    ///     The file a taste is kept in: <c>{entry assembly}.{taste}.json</c>, in this
+    ///     kitchen's pantry. The taste is named in full, namespace and all,
+    ///     so two tastes with the same short name do not end up in the same jar.
     /// </summary>
-    private static Kitchen Working
+    private static string JarFor<TTaste>(Kitchen kitchen)
+        where TTaste : class, new()
     {
-        get
-        {
-            hasCooked = true;
-            return kitchen ?? Kitchen.Default;
-        }
+        var app = Assembly.GetEntryAssembly()?.GetName().Name
+            ?? throw new InvalidOperationException("Could not find name of entry assembly.");
+
+        return Path.Combine(kitchen.Pantry, $"{app}.{NameOf<TTaste>()}.json".ToLowerInvariant());
     }
 
-    private static void Keep<TTaste>(TTaste taste)
+    /// <summary>
+    ///     A taste's full name, tidied into something that can be a file name.
+    /// </summary>
+    private static string NameOf<TTaste>()
+        where TTaste : class, new()
     {
-        Dish<TTaste>.Taste = taste;
-        Dish<TTaste>.Served = true;
+        var taste = typeof(TTaste);
+        var name = taste.FullName ?? taste.Name;
+
+        // A generic taste arrives assembly-qualified — Ns.Held`1[[System.Int32, ...]].
+        // Keep the readable head; the arity is enough to tell Held<T> apart from Held.
+        var arguments = name.IndexOf('[', StringComparison.Ordinal);
+        if (arguments >= 0)
+        {
+            name = name[..arguments];
+        }
+
+        // A nested taste comes through as Outer+Inner, and the arity as Held`1.
+        return name.Replace('+', '.').Replace('`', '.');
     }
 
     /// <summary>
@@ -128,9 +172,9 @@ public static class Cook
     ///     taste gets its own — there is no registry to keep.
     /// </summary>
     private static class Dish<TTaste>
+        where TTaste : class, new()
     {
         public static TTaste? Taste;
-
-        public static bool Served;
+        public static bool IsServed;
     }
 }

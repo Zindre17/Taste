@@ -1,4 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Taste.Savoring;
 
 namespace Taste.Tests;
