@@ -1,9 +1,8 @@
 namespace Taste;
 
 /// <summary>
-///     The arrangements a cook works under: where the pantry is down. Build
-///     one and hand it to <see cref="Cook.UseKitchen" /> if the standard
-///     arrangements are not what you want.
+///     The arrangements a cook works under. Build one and hand it to <see cref="Cook.UseKitchen" />
+///     if the standard arrangements are not what you want.
 /// </summary>
 /// <remarks>
 ///     A kitchen is fixed once built. Nothing about it can be changed afterwards, so

@@ -52,7 +52,7 @@ public static class Cook
     ///     a problem to look at, not to quietly overwrite.
     /// </exception>
     public static TTaste Serve<TTaste>()
-        where TTaste : class, new()
+        where TTaste : new()
     {
         if (Dish<TTaste>.IsServed)
         {
@@ -79,7 +79,7 @@ public static class Cook
     /// <typeparam name="TTaste">The type of taste to preserve.</typeparam>
     /// <param name="taste">The taste to keep.</param>
     public static void Preserve<TTaste>(TTaste taste)
-        where TTaste : class, new()
+        where TTaste : new()
     {
         var kitchen = EnterKitchen();
         PreparePantrySpace(kitchen);
@@ -89,9 +89,13 @@ public static class Cook
     }
 
     private static TTaste ReheatOrCook<TTaste>(string jar)
-        where TTaste : class, new()
+        where TTaste : new()
     {
-        return GrabFromPantry<TTaste>(jar) ?? new TTaste();
+        if (!File.Exists(jar))
+        {
+            return new TTaste();
+        }
+        return GrabFromPantry<TTaste>(jar);
     }
 
     private static void PreparePantrySpace(Kitchen kitchen)
@@ -104,23 +108,18 @@ public static class Cook
     }
 
     private static void PlaceInPantry<TTaste>(string jar, TTaste taste)
-        where TTaste : class, new()
     {
         File.WriteAllText(jar, JsonSerializer.Serialize(taste));
     }
 
-    private static TTaste? GrabFromPantry<TTaste>(string jar)
-        where TTaste : class, new()
+    private static TTaste GrabFromPantry<TTaste>(string jar)
+        where TTaste : new()
     {
-        if (!File.Exists(jar))
-        {
-            return null;
-        }
-        return JsonSerializer.Deserialize<TTaste>(File.ReadAllText(jar));
+        return JsonSerializer.Deserialize<TTaste>(File.ReadAllText(jar))
+            ?? new TTaste();
     }
 
     private static void Remember<TTaste>(TTaste taste)
-        where TTaste : class, new()
     {
         Dish<TTaste>.Taste = taste;
         Dish<TTaste>.IsServed = true;
@@ -138,7 +137,7 @@ public static class Cook
     ///     so two tastes with the same short name do not end up in the same jar.
     /// </summary>
     private static string JarFor<TTaste>(Kitchen kitchen)
-        where TTaste : class, new()
+        where TTaste : new()
     {
         var app = Assembly.GetEntryAssembly()?.GetName().Name
             ?? throw new InvalidOperationException("Could not find name of entry assembly.");
@@ -150,7 +149,6 @@ public static class Cook
     ///     A taste's full name, tidied into something that can be a file name.
     /// </summary>
     private static string NameOf<TTaste>()
-        where TTaste : class, new()
     {
         var taste = typeof(TTaste);
         var name = taste.FullName ?? taste.Name;
@@ -172,7 +170,6 @@ public static class Cook
     ///     taste gets its own — there is no registry to keep.
     /// </summary>
     private static class Dish<TTaste>
-        where TTaste : class, new()
     {
         public static TTaste? Taste;
         public static bool IsServed;

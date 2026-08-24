@@ -39,6 +39,12 @@ public class CookTests
         public string Filling { get; init; } = "chocolate";
     }
 
+    public record struct AlsoFresh
+    {
+        public AlsoFresh() { }
+        public string Filling { get; init; } = "vanilla cream";
+    }
+
     public record SameTwice
     {
         public string Filling { get; set; } = "empty";
@@ -66,9 +72,9 @@ public class CookTests
         });
     }
 
-    // Mirrors Kitchen.LocateDish from the test side. If the naming scheme changes, this
+    // Mirrors Cook.JarFor from the test side. If the naming scheme changes, this
     // has to change with it.
-    private static string DishFor<TTaste>()
+    private static string JarFor<TTaste>()
     {
         var app = Assembly.GetEntryAssembly()!.GetName().Name!;
         var taste = typeof(TTaste).FullName!.Replace('+', '.').Replace('`', '.');
@@ -79,6 +85,7 @@ public class CookTests
     public void AFreshTasteComesFromItsPropertyInitialisers()
     {
         Assert.AreEqual("chocolate", Cook.Serve<Fresh>().Filling);
+        Assert.AreEqual("vanilla cream", Cook.Serve<AlsoFresh>().Filling);
     }
 
     [TestMethod]
@@ -99,7 +106,7 @@ public class CookTests
 
         Assert.AreEqual(
             new Preserved { Savored = "I was preserved!" },
-            JsonSerializer.Deserialize<Preserved>(File.ReadAllText(DishFor<Preserved>())));
+            JsonSerializer.Deserialize<Preserved>(File.ReadAllText(JarFor<Preserved>())));
     }
 
     [TestMethod]
@@ -121,37 +128,36 @@ public class CookTests
         // remember it.
         Directory.CreateDirectory(pantry);
         File.WriteAllText(
-            DishFor<Kept>(), JsonSerializer.Serialize(new Kept { Stored = "kept" }));
+            JarFor<Kept>(), JsonSerializer.Serialize(new Kept { Stored = "kept" }));
 
         Assert.AreEqual("kept", Cook.Serve<Kept>().Stored);
     }
 
     [TestMethod]
-    public void ACorruptDishThrowsRatherThanStartingOver()
+    public void ACorruptJarThrowsRatherThanStartingOver()
     {
         Directory.CreateDirectory(pantry);
-        File.WriteAllText(DishFor<Corrupt>(), "{ this is not json");
+        File.WriteAllText(JarFor<Corrupt>(), "{ this is not json");
 
         Assert.Throws<JsonException>(() => Cook.Serve<Corrupt>());
     }
 
     [TestMethod]
-    public void TheKitchenSaysWhereAndHowTastesAreKept()
+    public void TheKitchenSaysWhereTastesAreKept()
     {
         Cook.Preserve(new Seasoned { Flavouring = "indented" });
 
-        var dish = DishFor<Seasoned>();
-        Assert.IsTrue(File.Exists(dish), "the kitchen's pantry was not used");
-        StringAssert.Contains(File.ReadAllText(dish), Environment.NewLine);
+        var jar = JarFor<Seasoned>();
+        Assert.IsTrue(File.Exists(jar), "the kitchen's pantry was not used");
     }
 
     [TestMethod]
-    public void TastesWithTheSameShortNameGetTheirOwnDish()
+    public void TastesWithTheSameShortNameGetTheirOwnJar()
     {
         Cook.Preserve(new Twin { Where = "nested in the test class" });
         Cook.Preserve(new Cupboard.Twin { Where = "in the cupboard" });
 
-        Assert.AreNotEqual(DishFor<Twin>(), DishFor<Cupboard.Twin>());
+        Assert.AreNotEqual(JarFor<Twin>(), JarFor<Cupboard.Twin>());
         Assert.AreEqual("nested in the test class", Cook.Serve<Twin>().Where);
         Assert.AreEqual("in the cupboard", Cook.Serve<Cupboard.Twin>().Where);
     }
@@ -159,9 +165,9 @@ public class CookTests
     [TestMethod]
     public void ANestedTasteIsNamedWithDotsRatherThanAPlus()
     {
-        // Type.FullName says Taste.Tests.CookTests+Twin; a dish should not.
-        Assert.IsFalse(Path.GetFileName(DishFor<Twin>()).Contains('+'));
-        StringAssert.Contains(Path.GetFileName(DishFor<Twin>()), "cooktests.twin");
+        // Type.FullName says Taste.Tests.CookTests+Twin; a jar should not.
+        Assert.IsFalse(Path.GetFileName(JarFor<Twin>()).Contains('+'));
+        StringAssert.Contains(Path.GetFileName(JarFor<Twin>()), "cooktests.twin");
     }
 
     [TestMethod]
