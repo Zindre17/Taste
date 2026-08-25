@@ -95,6 +95,30 @@ rather than leaving some tastes in the old pantry and some in the new. A `Kitche
 be changed once built, and there is one kitchen per process. The directory is created for
 you when you `Preserve`.
 
+### When one taste belongs somewhere else
+
+Settings and records are different things, and most operating systems keep them in
+different places. Give a taste a pantry of its own and the rest carry on in the kitchen's:
+
+```csharp
+Cook.UseKitchen(new Kitchen
+{
+    Pantry = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    Pantries = new Dictionary<Type, string>
+    {
+        [typeof(Settings)] = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+    },
+});
+```
+
+`Serve<Settings>()` and `Preserve(settings)` then read and write in that pantry, and every
+other taste in `Pantry`. Both directories are created when you `Preserve` into them.
+
+The dictionary is copied when the kitchen is built, so keeping a reference to it is not a
+way to move a pantry afterwards — a kitchen is still fixed once built. And a taste with a
+pantry of its own never asks for `Pantry`, so an app that gives every taste one never needs
+the default and never trips the exception it throws when it cannot find your executable.
+
 ## The boring stuff
 
 What if two tastes are named the same?

@@ -51,29 +51,60 @@ public class CookTests
         public string Where { get; init; } = "nowhere";
     }
 
+    // Three tastes about where a taste is kept. The first two have a pantry of their own,
+    // handed to the kitchen in SetTheKitchen — arrangements are settled once per process,
+    // so there is nowhere else to declare them.
+    public record Elsewhere
+    {
+        public string Where { get; init; } = "not yet anywhere";
+    }
+
+    public record Created
+    {
+        public string Where { get; init; } = "not yet anywhere";
+    }
+
+    public record AtHome
+    {
+        public string Where { get; init; } = "not yet anywhere";
+    }
+
     // The cook's arrangements are settled once per process, so the whole run shares one
     // pantry. Tests stay isolated by using a taste type of their own, not a pantry of
     // their own.
     private static string pantry = null!;
+    private static string otherPantry = null!;
+    private static string madePantry = null!;
 
     [AssemblyInitialize]
     public static void SetTheKitchen(TestContext context)
     {
-        pantry = Path.Combine(Path.GetTempPath(), $"taste-tests-{Guid.NewGuid():N}");
+        var root = Path.Combine(Path.GetTempPath(), $"taste-tests-{Guid.NewGuid():N}");
+        pantry = Path.Combine(root, "pantry");
+        otherPantry = Path.Combine(root, "other");
+
+        // Deliberately never created here: preserving the taste has to make it.
+        madePantry = Path.Combine(root, "made");
 
         Cook.UseKitchen(new Kitchen
         {
             Pantry = pantry,
+            Pantries = new Dictionary<Type, string>
+            {
+                [typeof(Elsewhere)] = otherPantry,
+                [typeof(Created)] = madePantry,
+            },
         });
     }
 
     // Mirrors Cook.JarFor from the test side. If the naming scheme changes, this
-    // has to change with it.
-    private static string JarFor<TTaste>()
+    // has to change with it. Takes the pantry, as the real one now does, since a taste
+    // is no longer necessarily kept in the kitchen's.
+    private static string JarFor<TTaste>(string? inPantry = null)
     {
         var app = Assembly.GetEntryAssembly()!.GetName().Name!;
         var taste = typeof(TTaste).FullName!.Replace('+', '.').Replace('`', '.');
-        return Path.Combine(pantry, $"{app}.{taste}.json".ToLowerInvariant());
+        return Path.Combine(inPantry ?? pantry, $"{app}.{taste}.json".ToLowerInvariant());
     }
 
     [TestMethod]
@@ -156,6 +187,53 @@ public class CookTests
         // Type.FullName says Taste.Tests.CookTests+Twin; a jar should not.
         Assert.IsFalse(Path.GetFileName(JarFor<Twin>()).Contains('+'));
         StringAssert.Contains(Path.GetFileName(JarFor<Twin>()), "cooktests.twin");
+    }
+
+    [TestMethod]
+    public void ATasteWithAPantryOfItsOwnIsKeptThere()
+    {
+        Cook.Preserve(new Elsewhere { Where = "in a pantry of my own" });
+
+        Assert.IsTrue(
+            File.Exists(JarFor<Elsewhere>(otherPantry)), "the taste's own pantry was not used");
+        Assert.IsFalse(
+            File.Exists(JarFor<Elsewhere>()), "the taste was kept in the kitchen's pantry too");
+        Assert.AreEqual("in a pantry of my own", Cook.Serve<Elsewhere>().Where);
+    }
+
+    [TestMethod]
+    public void ATasteWithoutOneStaysInTheKitchensPantry()
+    {
+        Cook.Preserve(new AtHome { Where = "with the rest" });
+
+        Assert.IsTrue(File.Exists(JarFor<AtHome>()), "the kitchen's pantry was not used");
+    }
+
+    [TestMethod]
+    public void APantryOfItsOwnIsMadeWhenTheTasteIsPreserved()
+    {
+        // Preserve creates the pantry it writes into — which has to be the taste's own,
+        // not the kitchen's, or the write lands in a directory that is not there.
+        Assert.IsFalse(Directory.Exists(madePantry), "nothing to prove: it already exists");
+
+        Cook.Preserve(new Created { Where = "somewhere that had to be made" });
+
+        Assert.IsTrue(File.Exists(JarFor<Created>(madePantry)));
+    }
+
+    [TestMethod]
+    public void TheKitchenKeepsItsOwnCopyOfThePantries()
+    {
+        // A kitchen is fixed once built, so the dictionary handed in cannot be a way
+        // back in to move a pantry afterwards.
+        var handedIn = new Dictionary<Type, string> { [typeof(Elsewhere)] = "first" };
+        var kitchen = new Kitchen { Pantry = pantry, Pantries = handedIn };
+
+        handedIn[typeof(Elsewhere)] = "second";
+        handedIn[typeof(AtHome)] = "sneaked in";
+
+        Assert.AreEqual("first", kitchen.Pantries[typeof(Elsewhere)]);
+        Assert.IsFalse(kitchen.Pantries.ContainsKey(typeof(AtHome)));
     }
 
     [TestMethod]

@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace Taste;
 
 /// <summary>
@@ -11,6 +13,9 @@ namespace Taste;
 /// </remarks>
 public sealed class Kitchen
 {
+    private static readonly FrozenDictionary<Type, string> NoOtherPantries =
+        FrozenDictionary<Type, string>.Empty;
+
     /// <summary>
     ///     The standard arrangements, used unless a cook is given a different kitchen.
     /// </summary>
@@ -32,4 +37,33 @@ public sealed class Kitchen
                 + "Build a Kitchen with a Pantry to say where tastes should be kept.");
         init;
     }
+
+    /// <summary>
+    ///     Pantries for tastes that are not kept with the rest. A taste listed here goes in
+    ///     its own pantry; everything else goes in <see cref="Pantry" />.
+    /// </summary>
+    /// <remarks>
+    ///     For the app whose settings belong in one place and whose records belong in
+    ///     another — the two the operating system keeps apart. Copied when the kitchen is
+    ///     built, so the dictionary handed in cannot be changed afterwards. A taste kept
+    ///     here never reads <see cref="Pantry" />, so an app that gives every taste a
+    ///     pantry of its own never needs the default and never trips its exception.
+    /// </remarks>
+    /// <example>
+    ///     <code>
+    ///     Cook.UseKitchen(new Kitchen
+    ///     {
+    ///         Pantry = dataDirectory,
+    ///         Pantries = new Dictionary&lt;Type, string&gt;
+    ///         {
+    ///             [typeof(Settings)] = configDirectory,
+    ///         },
+    ///     });
+    ///     </code>
+    /// </example>
+    public IReadOnlyDictionary<Type, string> Pantries
+    {
+        get;
+        init => field = value.ToFrozenDictionary();
+    } = NoOtherPantries;
 }

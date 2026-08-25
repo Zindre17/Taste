@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`Taste` is a small NuGet library that persists console-app state as JSON. The public surface is two types: `Cook` (the static entry point — `Serve<T>`, `Preserve<T>`, `UseKitchen`) and `Kitchen` (the arrangements — `Pantry`, `Default`), plus one easter egg, `Savor()`, tucked away in `Taste.Savoring`.
+`Taste` is a small NuGet library that persists console-app state as JSON. The public surface is two types: `Cook` (the static entry point — `Serve<T>`, `Preserve<T>`, `UseKitchen`) and `Kitchen` (the arrangements — `Pantry`, `Pantries`, `Default`), plus one easter egg, `Savor()`, tucked away in `Taste.Savoring`.
 
 The name is an anagram of *state* — that pun is the origin of the food metaphor, which is deliberate and pervasive from there (`TTaste` for the state value, `Preserve()` for the write, `pantry` for the directory, `jar` for the file path). Keep API and identifier naming in that vocabulary.
 
@@ -31,13 +31,15 @@ dotnet pack Taste/Taste.csproj -c Release       # produce the NuGet package
 
 **`Preserve` takes the taste by value, deliberately.** A record replaced with `with` is a different object than the one `Serve` handed out, so a `Preserve<T>()` that looked the taste up in `Dish<T>` would silently write the stale one. Do not "simplify" it into a no-argument form.
 
-**Arrangements are settled on first contact with the pantry.** `Cook.EnterKitchen()` returns the kitchen and sets `hasEnteredKitchen`; `UseKitchen` throws once that flag is set. `Kitchen` is init-only, so there is no way to change arrangements out from under a taste that has already been served. The cost is that there is exactly one kitchen per process.
+**Arrangements are settled on first contact with the pantry.** `Cook.EnterKitchen()` returns the kitchen and sets `hasEnteredKitchen`; `UseKitchen` throws once that flag is set. `Kitchen` is init-only, so there is no way to change arrangements out from under a taste that has already been served — including `Pantries`, which is frozen into the kitchen on `init` so the dictionary the caller kept a reference to is not a way back in. The cost is that there is exactly one kitchen per process, which is why a per-taste pantry has to be declared up front rather than at the call site that wants it.
 
-**File location.** `Cook.JarFor<T>(Kitchen)` builds `{entry-assembly-name}.{taste-full-name}.json`, lowercased, inside the kitchen's `Pantry`, which defaults to the directory of `Environment.ProcessPath`. The default is resolved lazily on first read, so a null `ProcessPath` only throws for callers who actually rely on it. The name depends on the *entry* assembly — under `dotnet test` that is `testhost`.
+**File location.** `Cook.PantryFor<T>(Kitchen)` picks the directory — the taste's entry in `Kitchen.Pantries` if it has one, the kitchen's `Pantry` otherwise — and `Cook.JarFor<T>(string)` builds `{entry-assembly-name}.{taste-full-name}.json`, lowercased, inside it. `Pantry` defaults to the directory of `Environment.ProcessPath`, resolved lazily on first read, so a null `ProcessPath` only throws for callers who actually rely on it; `PantryFor` asks `Pantries` first for that reason, so a taste with a pantry of its own never forces the default. The name depends on the *entry* assembly — under `dotnet test` that is `testhost`.
+
+**`Preserve` prepares the pantry it is about to write into**, not the kitchen's. Both come from one `PantryFor<T>` call there — resolving twice, or preparing `kitchen.Pantry` while writing the jar somewhere else, puts the write in a directory that was never created. `APantryOfItsOwnIsMadeWhenTheTasteIsPreserved` pins it.
 
 **The taste is named in full, on purpose.** `Cook.NameOf<T>()` uses `Type.FullName`, so `Billing.Settings` and `Display.Settings` get a jar each. Under the old simple-name scheme they shared one, silently, and it was the hardest failure here to diagnose. `NameOf` tidies three things `FullName` produces: nested types arrive as `Outer+Inner`, generic arity as `Held\`1`, and closed generics as an assembly-qualified `Held\`1[[System.Int32, ...]]` that is cut at the first `[`. The trade is that renaming a taste or moving its namespace orphans its jar — `Serve` then hands out a fresh one.
 
-`CookTests.JarFor<T>()` mirrors this from the test side and has to be kept in step.
+`CookTests.JarFor<T>(string?)` mirrors this from the test side and has to be kept in step; it takes the pantry, defaulting to the kitchen's, because a taste is no longer necessarily kept there.
 
 **`where TTaste : new()`, and why there is no recipe.** An earlier shape had `Cook.Learn<T>(Func<T>)` supplying a factory for tastes that could not make themselves. It was dropped because it could only fail when the pantry was *empty* — that is, on a fresh install, on someone else's machine, never on the developer's after their first run. The `new()` constraint moves that to CS0310 at the call site instead. The cost is the positional record form (`record Snack(string Type)`); `init` properties with initialisers keep both immutability and a first-run default, on the type where there is one place to look for it. Do not reintroduce a factory parameter or a `Learn` method — it puts the fresh-install footgun straight back.
 
@@ -52,7 +54,8 @@ A second consequence of allowing structs: `Serve` hands back a *copy* of a struc
 MSTest runs all tests in one process, so the cook's memory and the on-disk JSON persist across test methods and across runs. Two consequences:
 
 - **One taste type per test.** Each test declares its own record so the per-closed-generic memory stays isolated. Follow that rather than reusing an existing taste.
-- **One pantry for the whole run.** Arrangements are settled once per process, so `[AssemblyInitialize]` in `CookTests` calls `UseKitchen` with a GUID temp directory, and tests share it. Isolation comes from the taste type, not from the pantry — the old per-test `FreshPantry()` pattern is not possible here. `UseKitchenAfterTheCookHasStartedThrows` relies on `AssemblyInitialize` having already run.
+- **One kitchen for the whole run.** Arrangements are settled once per process, so `[AssemblyInitialize]` in `CookTests` calls `UseKitchen` with a GUID temp directory, and tests share it. Isolation comes from the taste type, not from the pantry — the old per-test `FreshPantry()` pattern is not possible here. `UseKitchenAfterTheCookHasStartedThrows` relies on `AssemblyInitialize` having already run.
+- **A test that needs a pantry of its own declares it there too**, since that is the only `UseKitchen` there will be: `otherPantry` for `Elsewhere`, and `madePantry` for `Created`. `madePantry` is deliberately never created by the test setup — `APantryOfItsOwnIsMadeWhenTheTasteIsPreserved` asserts it is absent before proving `Preserve` makes it, so nothing else may preserve a `Created` or touch that directory.
 
 Tests that need to read a jar off disk build the path with `CookTests.JarFor<T>()`, a test-side copy of `Cook.JarFor<T>(Kitchen)` — the real one is private. If the naming scheme changes, that helper has to change with it.
 

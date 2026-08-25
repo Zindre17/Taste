@@ -28,7 +28,8 @@ public static class Cook
         {
             throw new InvalidOperationException(
                 "The cook has already been to the pantry. Call UseKitchen before the "
-               + "first Serve or Preserve, so every taste is kept in the same place.");
+               + "first Serve or Preserve, so no taste is served from a pantry the "
+               + "kitchen has since moved away from.");
         }
 
         Cook.kitchen = kitchen;
@@ -60,7 +61,7 @@ public static class Cook
         }
 
         var kitchen = EnterKitchen();
-        var jar = JarFor<TTaste>(kitchen);
+        var jar = JarFor<TTaste>(PantryFor<TTaste>(kitchen));
         var taste = ReheatOrCook<TTaste>(jar);
         Remember(taste);
         return taste;
@@ -82,8 +83,9 @@ public static class Cook
         where TTaste : new()
     {
         var kitchen = EnterKitchen();
-        PreparePantrySpace(kitchen);
-        var jar = JarFor<TTaste>(kitchen);
+        var pantry = PantryFor<TTaste>(kitchen);
+        PreparePantrySpace(pantry);
+        var jar = JarFor<TTaste>(pantry);
         PlaceInPantry(jar, taste);
         Remember(taste);
     }
@@ -104,9 +106,8 @@ public static class Cook
     /// <summary>
     ///     Create pantry(directory) if it does not exist.
     /// </summary>
-    private static void PreparePantrySpace(Kitchen kitchen)
+    private static void PreparePantrySpace(string pantry)
     {
-        var pantry = kitchen.Pantry;
         if (!string.IsNullOrEmpty(pantry))
         {
             Directory.CreateDirectory(pantry);
@@ -153,16 +154,27 @@ public static class Cook
     }
 
     /// <summary>
-    ///     The file a taste is kept in: <c>{entry assembly}.{taste}.json</c>, in this
-    ///     kitchen's pantry. The taste is named in full, namespace and all,
+    ///     Where this taste is kept: its own pantry if the kitchen gave it one, and the
+    ///     kitchen's <see cref="Kitchen.Pantry" /> otherwise. Asked in that order on
+    ///     purpose — a taste with a pantry of its own never forces the default, which
+    ///     resolves lazily and can throw.
+    /// </summary>
+    private static string PantryFor<TTaste>(Kitchen kitchen)
+        => kitchen.Pantries.TryGetValue(typeof(TTaste), out var pantry)
+            ? pantry
+            : kitchen.Pantry;
+
+    /// <summary>
+    ///     The file a taste is kept in: <c>{entry assembly}.{taste}.json</c>, in the
+    ///     pantry that taste is kept in. The taste is named in full, namespace and all,
     ///     so two tastes with the same short name do not end up in the same jar.
     /// </summary>
-    private static string JarFor<TTaste>(Kitchen kitchen)
+    private static string JarFor<TTaste>(string pantry)
     {
         var app = Assembly.GetEntryAssembly()?.GetName().Name
             ?? throw new InvalidOperationException("Could not find name of entry assembly.");
 
-        return Path.Combine(kitchen.Pantry, $"{app}.{NameOf<TTaste>()}.json".ToLowerInvariant());
+        return Path.Combine(pantry, $"{app}.{NameOf<TTaste>()}.json".ToLowerInvariant());
     }
 
     /// <summary>
