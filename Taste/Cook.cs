@@ -88,6 +88,9 @@ public static class Cook
         Remember(taste);
     }
 
+    /// <summary>
+    ///     Create a new instanse of <c>TTaste</c> when there is no existing jar (file) for it.
+    /// </summary>
     private static TTaste ReheatOrCook<TTaste>(string jar)
         where TTaste : new()
     {
@@ -98,6 +101,9 @@ public static class Cook
         return GrabFromPantry<TTaste>(jar);
     }
 
+    /// <summary>
+    ///     Create pantry(directory) if it does not exist.
+    /// </summary>
     private static void PreparePantrySpace(Kitchen kitchen)
     {
         var pantry = kitchen.Pantry;
@@ -107,11 +113,18 @@ public static class Cook
         }
     }
 
+    /// <summary>
+    ///     Serialize the taste(state) into the jar(file).
+    /// </summary>
     private static void PlaceInPantry<TTaste>(string jar, TTaste taste)
     {
         File.WriteAllText(jar, JsonSerializer.Serialize(taste));
     }
 
+    /// <summary>
+    ///     Deserialize the persisted state or create a new if deserialization 
+    ///     results in null.
+    /// </summary>
     private static TTaste GrabFromPantry<TTaste>(string jar)
         where TTaste : new()
     {
@@ -119,12 +132,20 @@ public static class Cook
             ?? new TTaste();
     }
 
+    /// <summary>
+    ///     Cache what has been served and preserved so additional calls to
+    ///     <see cref="Serve{TTaste}" /> does not have to read from file every time.
+    /// </summary>
     private static void Remember<TTaste>(TTaste taste)
     {
         Dish<TTaste>.Taste = taste;
         Dish<TTaste>.IsServed = true;
     }
 
+    /// <summary>
+    ///     Once the cook has entered a kitchen, it is no longer possible to use
+    ///     another one for the current process.
+    /// </summary>
     private static Kitchen EnterKitchen()
     {
         hasEnteredKitchen = true;
@@ -137,7 +158,6 @@ public static class Cook
     ///     so two tastes with the same short name do not end up in the same jar.
     /// </summary>
     private static string JarFor<TTaste>(Kitchen kitchen)
-        where TTaste : new()
     {
         var app = Assembly.GetEntryAssembly()?.GetName().Name
             ?? throw new InvalidOperationException("Could not find name of entry assembly.");

@@ -29,11 +29,6 @@ public class CookTests
         public string Which { get; init; } = "the original";
     }
 
-    public record Seasoned
-    {
-        public string Flavouring { get; init; } = "plain";
-    }
-
     public record Fresh
     {
         public string Filling { get; init; } = "chocolate";
@@ -104,9 +99,11 @@ public class CookTests
     {
         Cook.Preserve(new Preserved { Savored = "I was preserved!" });
 
+        var jar = JarFor<Preserved>();
+        Assert.IsTrue(File.Exists(jar), "the kitchen's pantry was not used");
         Assert.AreEqual(
             new Preserved { Savored = "I was preserved!" },
-            JsonSerializer.Deserialize<Preserved>(File.ReadAllText(JarFor<Preserved>())));
+            JsonSerializer.Deserialize<Preserved>(File.ReadAllText(jar)));
     }
 
     [TestMethod]
@@ -140,15 +137,6 @@ public class CookTests
         File.WriteAllText(JarFor<Corrupt>(), "{ this is not json");
 
         Assert.Throws<JsonException>(() => Cook.Serve<Corrupt>());
-    }
-
-    [TestMethod]
-    public void TheKitchenSaysWhereTastesAreKept()
-    {
-        Cook.Preserve(new Seasoned { Flavouring = "indented" });
-
-        var jar = JarFor<Seasoned>();
-        Assert.IsTrue(File.Exists(jar), "the kitchen's pantry was not used");
     }
 
     [TestMethod]
